@@ -1,0 +1,44 @@
+/* ----admin dashboard css---- */
+.add_hdr {
+  background: transparent;
+  margin: 0px;
+  padding: 10px 2%;
+  width: 100%;
+  margin-bottom: 23px;
+  display: flex;
+  justify-content: space-between !important;
+  align-items: center;
+  box-shadow: 0 3px 10px #0000002b;
+  justify-content: end;
+}
+.add_nav {
+  margin: 0px;
+  padding: 0px;
+}
+.add_nav ul {
+  margin: 0px;
+  padding: 0px;
+  float: right;
+}
+.add_nav ul li {
+  margin: 0px;
+  padding: 0px;
+  float: left;
+  line-height: 52px;
+  list-style: none;
+}
+.add_nav .active {
+  color: #fff;
+  background-color: #1a4d80;
+  border-radius: 4px;
+}
+.add_nav ul li a {
+  color: #1a4d80;
+  display: block;
+
+  font-size: 14px;
+  margin: 0;
+  padding: 0 21px !important;
+  text-decoration: none;
+}
+
