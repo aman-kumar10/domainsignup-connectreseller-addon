@@ -25,10 +25,10 @@ class Helper
                 if($status == 200) {
 
                     if($userid) {
-                        $sendKYCEmail = $this->sendKYCEmail($userid);
-                        if($sendKYCEmail) {
+                        $sendKYCEmail = $this->sendKYCEmail(uid: $userid);
+                        if($sendKYCEmail['status'] == "emailSend") {
                             return ["status" => "kyc_success",
-                                    "message" => "Your KYC status is unverified. We have sent you a KYC verification email — please check your inbox and follow the instructions to complete the verification."
+                                    "message" => "Your KYC status is unverified. We have sent you a KYC verification email — please check your inbox and follow the instructions to complete the KYC verification."
                                 ];
                         }
                     }
@@ -39,7 +39,7 @@ class Helper
 
                 } else {
                     return ["status" => "notexist_success",
-                        "message" => "User Exist"
+                        "message" => "User Doesn't Exist"
                     ];
                 }
 
@@ -117,12 +117,12 @@ class Helper
                     $registrantData = json_decode($registrant_data['response'], true);
                     $registrant_status = $registrantData['responseData']['kycStatus'];
 
-                    if($registrant_status != "Active") {
+                    if($registrant_status != "Verified") {
                         // Send KYC Email
                         $sendKYCEmail = $this->sendKYCEmail($userID);
-                        if($sendKYCEmail) {
+                        if($sendKYCEmail['status'] == "emailSend") {
                             return ["status" => "kyc_success",
-                                    "message" => "Your KYC status is unverified. We have sent you a KYC verification email — please check your inbox and follow the instructions to complete the verification."
+                                    "message" => "Your KYC status is unverified. We have sent you a KYC verification email — please check your inbox and follow the instructions to complete the KYC verification."
                                 ];
                         }
                     }
@@ -145,33 +145,66 @@ class Helper
             $field_id = Capsule::table('tblcustomfields')->where('fieldname', 'like', 'resellerClientID|%')->where('type', 'client')->value('id');
             $registrantID =  Capsule::table('tblcustomfieldsvalues')->where("fieldid", $field_id)->where("relid", $uid)->value("value");
 
-            $exist_data = Capsule::table("mod_kyc_emailVerification")->where("clientId", $uid)->where("registrantId", $registrantID)->first();
-            if($exist_data->status != "Active") {
-                
-                $kyc_sendData = [
-                    'registrantContactId' => $registrantID
-                ];
+            if (!$registrantID) {
+                logActivity("No registrantID found for clientId {$uid}");
+                return false;
+            }
+            
+            // Check registrant status
+            $status_data = [
+                'RegistrantContactId' => $registrantID
+            ];
+            $viewRegistrantStatus = $curl->curlCall("GET", $status_data, "ViewRegistrant");
 
-                // Send KYC email
-                $sendEmail = $curl->curlCall("GET", $kyc_sendData, "sendKYCMail");
-                if($sendEmail['status_code'] == 200) {
-                    $insert = Capsule::table('mod_kyc_emailVerification')->updateOrInsert(
+            if(!empty($viewRegistrantStatus['status_code']) && $viewRegistrantStatus['status_code'] == 200) {
+                $registrantData = json_decode($viewRegistrantStatus['response'], true);
+                $registrant_status = $registrantData['responseData']['kycStatus'];
+
+                if($registrant_status == "Verified") {
+                    Capsule::table('mod_kyc_emailVerification')->updateOrInsert(
                         ['clientId' => $uid],
                         [
                             'registrantId' => $registrantID,
-                            'status'       => "NA",
-                            'send'         => 1,
+                            'status'       => $registrant_status,
+                            'send'         => 0,
                             'updated_at'   => date('Y-m-d H:i:s'),
                         ]
                     );
 
-                    if($insert) {
-                        return true;
+                    return ["status" => "statusUpdated", "message" => "The KYC verification had beed verified by the user."];
+
+                } else {
+
+                    $exist_data = Capsule::table("mod_kyc_emailVerification")->where("clientId", $uid)->where("registrantId", $registrantID)->first();
+
+                    if(!$exist_data || $exist_data->status != "Verified") {
+                        
+                        $kyc_sendData = [
+                            'registrantContactId' => $registrantID
+                        ];
+
+                        // Send KYC email
+                        $sendEmail = $curl->curlCall("GET", $kyc_sendData, "sendKYCMail");
+                        if(!empty($sendEmail['status_code']) && $sendEmail['status_code'] == 200) {
+                            Capsule::table('mod_kyc_emailVerification')->updateOrInsert(
+                                ['clientId' => $uid],
+                                [
+                                    'registrantId' => $registrantID,
+                                    'status'       => "NA",
+                                    'send'         => 1,
+                                    'updated_at'   => date('Y-m-d H:i:s'),
+                                ]
+                            );
+
+                            return ["status" => "emailSend", "message" => "The KYC verification email has beed sent to client: #{$uid}."];
+                        }
                     }
                 }
+
             }
+
         } catch(Exception $e) {
-            logActivity("Unable to send the KYC Email. Error: ". $e->getMessage());
+            logActivity("Unable to send the KYC Email for clientId {$uid}". $e->getMessage());
         }
     }
 
