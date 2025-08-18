@@ -8,22 +8,22 @@ if(!defined("WHMCS")) {
 }
 
 // Add client
-// add_hook("ClientAdd", 1, function($vars) {
-//     try {
-//         //  
-//         $helper = new Helper;
+add_hook("ClientAdd", 1, function($vars) {
+    try {
+        //  
+        $helper = new Helper;
 
-//         if(isset($vars['userid']) && $vars['country'] == "IN") {
-//             $client_exist = $helper->viewResellerClient($vars['email'], $vars['userid']);
-//             if($client_exist['status'] == "notexist_success") {
-//                 $helper->addResellerClient($vars);
-//             }
-//         }
+        if(isset($vars['userid']) && $vars['country'] == "IN") {
+            $client_exist = $helper->viewResellerClient($vars['email'], $vars['userid']);
+            if($client_exist['status'] == "notexist_success") {
+                $helper->addResellerClient($vars);
+            }
+        }
 
-//     } catch(Exception $e) {
-//         logActivity("Error to ClientAdd hook. Error: ".$e->getMessage());
-//     }
-// });
+    } catch(Exception $e) {
+        logActivity("Error to ClientAdd hook. Error: ".$e->getMessage());
+    }
+});
 
 add_hook('ClientAreaHeadOutput', 1, function($vars) {
     if($_GET["aman"] == 1) {
@@ -37,7 +37,6 @@ add_hook('ClientAreaHeadOutput', 1, function($vars) {
 // Return Checkout validations
 add_hook('ShoppingCartValidateCheckout', 1, function($vars) {
     try {
-
         //  
         $helper = new Helper;
 

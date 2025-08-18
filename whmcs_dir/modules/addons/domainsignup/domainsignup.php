@@ -33,7 +33,7 @@ function domainsignup_config()
                 'Size' => '225',
             ],
             'enableTestURL' => [
-                'FriendlyName' => 'Enable Test URL',
+                'FriendlyName' => 'Enable Test Mode',
                 'Type' => 'yesno',
             ],
         ]
@@ -44,10 +44,10 @@ function domainsignup_config()
 function domainsignup_activate()
 {
     try {
-        // Create custom client field for storing Reseller Client ID
-        if(Capsule::table('tblcustomfields')->where('fieldname','like','resellerClientID|%')->count()==0){
+        // Create custom client field for storing Registrant Contact Id
+        if(Capsule::table('tblcustomfields')->where('fieldname','like','registrantContactId|%')->count()==0){
             Capsule::table('tblcustomfields')->insert([
-                'type'=>'client', 'relid'=>0, 'fieldname'=>'resellerClientID|Reseller Client Id', 'fieldtype'=>'text', 'description'=>'', 'fieldoptions'=>'', 'regexpr'=>'', 'adminonly'=> '', 'required'=>'', 'showorder'=>'', 'showinvoice'=>'', 'sortorder'=>0,
+                'type'=>'client', 'relid'=>0, 'fieldname'=>'registrantContactId|Registrant Contact Id', 'fieldtype'=>'text', 'description'=>'', 'fieldoptions'=>'', 'regexpr'=>'', 'adminonly'=> '', 'required'=>'', 'showorder'=>'', 'showinvoice'=>'', 'sortorder'=>0,
             ]);
         }
 

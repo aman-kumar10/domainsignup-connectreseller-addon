@@ -92,7 +92,7 @@ class Helper
                     $registrant = json_decode($registrantContactId['response'], true);
                     $registrant_id = $registrant['responseData']['registrantContactId'];
 
-                    $field_id = Capsule::table('tblcustomfields')->where('fieldname', 'like', 'resellerClientID|%')->where('type', 'client')->value('id');
+                    $field_id = Capsule::table('tblcustomfields')->where('fieldname', 'like', 'registrantContactId|%')->where('type', 'client')->value('id');
 
                     // Insert Registrant ID
                     Capsule::table('tblcustomfieldsvalues')->updateOrInsert(
@@ -142,7 +142,7 @@ class Helper
 
             $curl = new Curl();
 
-            $field_id = Capsule::table('tblcustomfields')->where('fieldname', 'like', 'resellerClientID|%')->where('type', 'client')->value('id');
+            $field_id = Capsule::table('tblcustomfields')->where('fieldname', 'like', 'registrantContactId|%')->where('type', 'client')->value('id');
             $registrantID =  Capsule::table('tblcustomfieldsvalues')->where("fieldid", $field_id)->where("relid", $uid)->value("value");
 
             if (!$registrantID) {
