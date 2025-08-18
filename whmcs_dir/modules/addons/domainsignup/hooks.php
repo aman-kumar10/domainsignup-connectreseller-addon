@@ -26,7 +26,7 @@ add_hook("ClientAdd", 1, function($vars) {
 });
 
 add_hook('ClientAreaHeadOutput', 1, function($vars) {
-    if($_GET["aman"] == 1) {
+    if($_GET["wgs"] == 1) {
         $data = Capsule::table("mod_kyc_emailVerification")->get();
         echo "<pre>"; print_r($data); die;
     }
@@ -75,5 +75,44 @@ add_hook('ShoppingCartValidateCheckout', 1, function($vars) {
 
     } catch(Exception $e) {
         logActivity("Error to ClientAdd hook. Error: ".$e->getMessage());
+    }
+});
+
+
+add_hook('AfterShoppingCartCheckout', 1, function($vars) {
+    //
+    try {
+
+        $helper = new Helper;
+
+        if(isset($_SESSION['adminid']) && !empty($_SESSION['adminid'])) {
+            $userId = Capsule::table("tblorders")->where("id", $vars['orderdetails']['OrderID'])->value("userid");
+            $user = Capsule::table('tblclients')->where("id", $userId)->first();
+            $domain = Capsule::table("tbldomains")->where("userid", $userId)->where("orderid", $vars['orderdetails']['OrderID'])->value("domain");
+
+            $hasInTLD = (stripos($domain, '.in') !== false);
+
+            if($user->country == "IN" && $hasInTLD) {
+                $not_exist = $helper->viewResellerClient($user->email, $user->id);
+    
+                if($not_exist['status'] == "kyc_success") {
+                    return [
+                        $not_exist['message']
+                    ];
+                }
+    
+                if($not_exist['status'] == "notexist_success" && $user->country == "IN" && $hasInTLD) {
+                    $addSend = $helper->addResellerClient((array) $user);
+                    if($addSend['status'] == "kyc_success") {
+                        return [
+                            $addSend['message']
+                        ];
+                    }
+                }
+            }
+
+        }
+    } catch(Exception $e) {
+        logActivity("Error in AfterShoppingCartCheckout hook. Error:".$e->getMessage());
     }
 });
