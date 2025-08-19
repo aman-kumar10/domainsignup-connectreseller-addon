@@ -4,6 +4,9 @@ namespace WHMCS\Module\Addon\DomainSignup\Admin;
 
 use WHMCS\Module\Addon\DomainSignup\Admin\Controller;
 
+/*
+ Admin Dispatcher
+*/
 class AdminDispatcher
 {
     public function dispatch($action, $parameters)

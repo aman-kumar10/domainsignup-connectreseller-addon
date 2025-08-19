@@ -7,10 +7,15 @@ if(!defined("WHMCS")) {
     die("This file can not be accessed directly!");
 }
 
-// Add client
-add_hook("ClientAdd", 1, function($vars) {
+
+/* 
+ Add Reseller client 
+ While new WHMCS client added
+*/ 
+add_hook("ClientAdd", 1, function($vars) 
+{
     try {
-        //  
+
         $helper = new Helper;
 
         if(isset($vars['userid']) && $vars['country'] == "IN") {
@@ -26,11 +31,14 @@ add_hook("ClientAdd", 1, function($vars) {
 });
 
 
-
-// Return Checkout validations
-add_hook('ShoppingCartValidateCheckout', 1, function($vars) {
+/*
+ Return Checkout validations,
+ Reseller Client KYC Email Verification
+*/
+add_hook('ShoppingCartValidateCheckout', 1, function($vars) 
+{
     try {
-        //  
+
         $helper = new Helper;
 
         $domains = $_SESSION['cart']['domains'];
@@ -72,12 +80,16 @@ add_hook('ShoppingCartValidateCheckout', 1, function($vars) {
 });
 
 
-add_hook('PreShoppingCartCheckout', 1, function($vars) {
-    //
+/* 
+ Admin side domain checkout
+*/
+add_hook('PreShoppingCartCheckout', 1, function($vars) 
+{
     try {
 
         $helper = new Helper;
         
+        // Admin checkout (works only when admin place the order)
         if(isset($_SESSION['adminid']) && !empty($_SESSION['adminid'])) {
             
             $userId = Capsule::table("tblorders")->where("id", $_SESSION['orderdetails']['OrderID'])->value("userid");
@@ -93,6 +105,7 @@ add_hook('PreShoppingCartCheckout', 1, function($vars) {
             $hasInTLD = !empty(array_filter($in_domains, fn($d) => stripos($d, '.in') !== false));
 
             if($user->country == "IN" && $hasInTLD) {
+
                 $not_exist = $helper->viewResellerClient($user->email, $user->id);
     
                 if($not_exist['status'] == "kyc_success") {
@@ -117,18 +130,25 @@ add_hook('PreShoppingCartCheckout', 1, function($vars) {
     }
 });
 
-// Display client KYC status admin area
-add_hook('AdminAreaClientSummaryPage', 1, function($vars) {
+
+/*
+ Display client KYC verification status.
+ On client summary page at admin side
+*/
+add_hook('AdminAreaClientSummaryPage', 1, function($vars) 
+{
     try {
+
         $helper = new Helper;
 
         if(isset($vars['userid']) && !empty($vars['userid'])) {
             $registrantStatus = $helper->getRegistrantClientStatus($vars['userid']);
             
+            // Resturn the registrant status 
             if ($registrantStatus['status'] === "Verified") {
-                return '<div class="alert alert-success">Registrant client KYC status is verified.</div>';
+                return '<div class="alert alert-success">KYC verification for the registrant client has been completed.</div>';
             } else {
-                return '<div class="alert alert-warning">Registrant client KYC verification is not verified.</div>';
+                return '<div class="alert alert-warning">KYC verification for the registrant client has not been completed yet.</div>';
             }
         }
 
@@ -136,3 +156,4 @@ add_hook('AdminAreaClientSummaryPage', 1, function($vars) {
         logActivity("Error in client area summary page hook. Error: ".$e->getMessage());
     }
 });
+

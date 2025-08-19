@@ -7,7 +7,9 @@ if (!defined("WHMCS")) {
     die("This file cannot be accessed directly");
 }
 
-
+/*
+ Module confugurable options
+*/ 
 function domainsignup_config()
 {
     return [
@@ -40,7 +42,9 @@ function domainsignup_config()
     ];
 }
 
-
+/*
+ Module Activation
+*/ 
 function domainsignup_activate()
 {
     try {
@@ -76,6 +80,9 @@ function domainsignup_activate()
 }
 
 
+/*
+ Module Deactivation
+*/ 
 function domainsignup_deactivate()
 {
     try {
@@ -87,19 +94,25 @@ function domainsignup_deactivate()
     } catch (\Exception $e) {
         return [
             "status" => "error",
-            "description" => "Unable to deactivate the Domain Signup addon module: {$e->getMessage()}",
+            "description" => "Unable to deactivate the Domain Signup addon module: ".$e->getMessage(),
         ];
     }
 }
 
-
+/*
+ Module Output function
+*/ 
 function domainsignup_output($vars)
 {
-    // 
-    $action = isset($_REQUEST['action']) ? $_REQUEST['action'] : 'dashboard';
+    try {
+        $action = isset($_REQUEST['action']) ? $_REQUEST['action'] : 'dashboard';
+    
+        $dispatcher = new AdminDispatcher();    
+        return $dispatcher->dispatch($action, $vars);
 
-    $dispatcher = new AdminDispatcher();
-    $response = $dispatcher->dispatch($action, $vars);
-    return $response;
+    } catch(Exception $e) {
+        logActivity("Error in DomainSignup module's output. Error: ".$e->getMessage());
+        return "An error occurred while loading the Domain Signup module. Error: ".$e->getMessage();
+    }
 }
 

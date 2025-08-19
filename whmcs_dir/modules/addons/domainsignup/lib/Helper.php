@@ -8,6 +8,10 @@ use WHMCS\Database\Capsule;
 class Helper
 {
 
+    /**
+     * View Reseller client
+     ** Send Email verification Email 
+     */
     public function viewResellerClient($email, $userid = null) {
         try {
 
@@ -17,6 +21,7 @@ class Helper
                 "UserName" => $email
             ];
 
+            // Curl Call for ViewClient
             $response = $curl->curlCall("GET", $data, "ViewClient");
 
             if($response['status_code'] == 200) {
@@ -25,6 +30,7 @@ class Helper
                 if($status == 200) {
 
                     if($userid) {
+                        // Send KYC verification Email
                         $sendKYCEmail = $this->sendKYCEmail($userid);
                         if($sendKYCEmail['status'] == "emailSend") {
                             return ["status" => "kyc_success",
@@ -50,6 +56,10 @@ class Helper
         }
     }
 
+    /**
+     * Add new Reseller client
+     ** Send Email verification Email 
+     */
     public function addResellerClient($vars) {
         try {
 
@@ -75,7 +85,7 @@ class Helper
                 'PhoneNo' => $ph_no,
             ];
 
-            // Add client
+            // Curl Call for AddClient
             $response = $curl->curlCall("GET", $data, "AddClient");
             if($response['status_code'] == 200) {
                 $response_data = json_decode($response['response'], true);
@@ -85,7 +95,7 @@ class Helper
                     'Id' => $client_id
                 ];
 
-                // Get registrant ID
+                // Curl Call for DefaultRegistrantContact
                 $registrantContactId = $curl->curlCall("GET", $registrant_sendData, "DefaultRegistrantContact");
                 if($registrantContactId['status_code'] == 200) {
                     $userID = $vars['id'] ?? $vars['userid'] ?? null;
@@ -122,11 +132,15 @@ class Helper
     }
 
 
+    /**
+     * Send Email verification Email 
+     */
     public function sendKYCEmail($uid) {
         try {
 
             $curl = new Curl();
             
+            // retrive the registrant KYC verification status
             $viewRegistrantStatus = $this->getRegistrantClientStatus($uid);
 
             if($viewRegistrantStatus['status'] == "Verified") {
@@ -152,7 +166,7 @@ class Helper
                         'registrantContactId' => $viewRegistrantStatus['registrant_id']
                     ];
 
-                    // Send KYC email
+                    // Curl Call for sendKYCMail
                     $sendEmail = $curl->curlCall("GET", $kyc_sendData, "sendKYCMail");
                     if(!empty($sendEmail['status_code']) && $sendEmail['status_code'] == 200) {
                         Capsule::table('mod_kyc_emailVerification')->updateOrInsert(
@@ -175,10 +189,11 @@ class Helper
         }
     }
 
-    // get registrant KYC status
+    /**
+     * Get Reseller client KYC Email verification status
+     */
     public function getRegistrantClientStatus($uid) {
         try {
-            // 
             $curl = new Curl();
 
             $field_id = Capsule::table('tblcustomfields')->where('fieldname', 'like', 'registrantContactId|%')->where('type', 'client')->value('id');
@@ -192,11 +207,12 @@ class Helper
             $status_data = [
                 'RegistrantContactId' => $registrantID
             ];
+            // Curl Call for ViewRegistrant
             $viewRegistrantStatus = $curl->curlCall("GET", $status_data, "ViewRegistrant");
 
             if($viewRegistrantStatus['status_code'] == 200) {
                 $registrantData = json_decode($viewRegistrantStatus['response'], true);
-                $registrant_status = $registrantData['responseData']['kycStatus'];
+                $registrant_status = !empty($registrantData['responseData']['kycStatus']) ? $registrantData['responseData']['kycStatus'] : 'Unverified';
                 return [
                     "status" => $registrant_status,
                     "registrant_id" => $registrantID
