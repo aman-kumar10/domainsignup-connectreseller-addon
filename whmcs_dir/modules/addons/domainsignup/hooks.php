@@ -25,13 +25,6 @@ add_hook("ClientAdd", 1, function($vars) {
     }
 });
 
-add_hook('ClientAreaHeadOutput', 1, function($vars) {
-    if($_GET["wgs"] == 1) {
-        $data = Capsule::table("mod_kyc_emailVerification")->get();
-        echo "<pre>"; print_r($data); die;
-    }
-
-});
 
 
 // Return Checkout validations
@@ -79,18 +72,25 @@ add_hook('ShoppingCartValidateCheckout', 1, function($vars) {
 });
 
 
-add_hook('AfterShoppingCartCheckout', 1, function($vars) {
+add_hook('PreShoppingCartCheckout', 1, function($vars) {
     //
     try {
 
         $helper = new Helper;
-
+        
         if(isset($_SESSION['adminid']) && !empty($_SESSION['adminid'])) {
-            $userId = Capsule::table("tblorders")->where("id", $vars['orderdetails']['OrderID'])->value("userid");
+            
+            $userId = Capsule::table("tblorders")->where("id", $_SESSION['orderdetails']['OrderID'])->value("userid");
             $user = Capsule::table('tblclients')->where("id", $userId)->first();
-            $domain = Capsule::table("tbldomains")->where("userid", $userId)->where("orderid", $vars['orderdetails']['OrderID'])->value("domain");
 
-            $hasInTLD = (stripos($domain, '.in') !== false);
+            $domains = $vars['products'];
+            $in_domains = [];
+
+            foreach ($domains as $key => $domain) {
+                $in_domains[$key] = $domain['domain'];
+            }
+
+            $hasInTLD = !empty(array_filter($in_domains, fn($d) => stripos($d, '.in') !== false));
 
             if($user->country == "IN" && $hasInTLD) {
                 $not_exist = $helper->viewResellerClient($user->email, $user->id);
@@ -113,6 +113,26 @@ add_hook('AfterShoppingCartCheckout', 1, function($vars) {
 
         }
     } catch(Exception $e) {
-        logActivity("Error in AfterShoppingCartCheckout hook. Error:".$e->getMessage());
+        logActivity("Error in PreShoppingCartCheckout hook. Error:".$e->getMessage());
+    }
+});
+
+// Display client KYC status admin area
+add_hook('AdminAreaClientSummaryPage', 1, function($vars) {
+    try {
+        $helper = new Helper;
+
+        if(isset($vars['userid']) && !empty($vars['userid'])) {
+            $registrantStatus = $helper->getRegistrantClientStatus($vars['userid']);
+            
+            if ($registrantStatus['status'] === "Verified") {
+                return '<div class="alert alert-success">Registrant client KYC status is verified.</div>';
+            } else {
+                return '<div class="alert alert-warning">Registrant client KYC verification is not verified.</div>';
+            }
+        }
+
+    } catch(Exception $e) {
+        logActivity("Error in client area summary page hook. Error: ".$e->getMessage());
     }
 });

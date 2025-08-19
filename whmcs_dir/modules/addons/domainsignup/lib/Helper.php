@@ -25,7 +25,7 @@ class Helper
                 if($status == 200) {
 
                     if($userid) {
-                        $sendKYCEmail = $this->sendKYCEmail(uid: $userid);
+                        $sendKYCEmail = $this->sendKYCEmail($userid);
                         if($sendKYCEmail['status'] == "emailSend") {
                             return ["status" => "kyc_success",
                                     "message" => "Your KYC status is unverified. We have sent you a KYC verification email — please check your inbox and follow the instructions to complete the KYC verification."
@@ -106,27 +106,12 @@ class Helper
                     );
                 }
 
-                // View registrant
-                $view_sendData = [
-                    'RegistrantContactId' => $registrant_id
-                ];
-
-                // View Registrant Status
-                $registrant_data = $curl->curlCall("GET", $view_sendData, "ViewRegistrant");
-                if($registrant_data['status_code'] == 200) {
-                    $registrantData = json_decode($registrant_data['response'], true);
-                    $registrant_status = $registrantData['responseData']['kycStatus'];
-
-                    if($registrant_status != "Verified") {
-                        // Send KYC Email
-                        $sendKYCEmail = $this->sendKYCEmail($userID);
-                        if($sendKYCEmail['status'] == "emailSend") {
-                            return ["status" => "kyc_success",
-                                    "message" => "Your KYC status is unverified. We have sent you a KYC verification email — please check your inbox and follow the instructions to complete the KYC verification."
-                                ];
-                        }
-                    }
-
+                // Send KYC Email
+                $sendKYCEmail = $this->sendKYCEmail($userID);
+                if($sendKYCEmail['status'] == "emailSend") {
+                    return ["status" => "kyc_success",
+                            "message" => "Your KYC status is unverified. We have sent you a KYC verification email — please check your inbox and follow the instructions to complete the KYC verification."
+                        ];
                 }
 
             }
@@ -141,66 +126,48 @@ class Helper
         try {
 
             $curl = new Curl();
-
-            $field_id = Capsule::table('tblcustomfields')->where('fieldname', 'like', 'registrantContactId|%')->where('type', 'client')->value('id');
-            $registrantID =  Capsule::table('tblcustomfieldsvalues')->where("fieldid", $field_id)->where("relid", $uid)->value("value");
-
-            if (!$registrantID) {
-                logActivity("No registrantID found for clientId {$uid}");
-                return false;
-            }
             
-            // Check registrant status
-            $status_data = [
-                'RegistrantContactId' => $registrantID
-            ];
-            $viewRegistrantStatus = $curl->curlCall("GET", $status_data, "ViewRegistrant");
+            $viewRegistrantStatus = $this->getRegistrantClientStatus($uid);
 
-            if(!empty($viewRegistrantStatus['status_code']) && $viewRegistrantStatus['status_code'] == 200) {
-                $registrantData = json_decode($viewRegistrantStatus['response'], true);
-                $registrant_status = $registrantData['responseData']['kycStatus'];
+            if($viewRegistrantStatus['status'] == "Verified") {
+                Capsule::table('mod_kyc_emailVerification')->updateOrInsert(
+                    ['clientId' => $uid],
+                    [
+                        'registrantId' => $viewRegistrantStatus['registrant_id'],
+                        'status'       => $viewRegistrantStatus['status'],
+                        'send'         => 0,
+                        'updated_at'   => date('Y-m-d H:i:s'),
+                    ]
+                );
 
-                if($registrant_status == "Verified") {
-                    Capsule::table('mod_kyc_emailVerification')->updateOrInsert(
-                        ['clientId' => $uid],
-                        [
-                            'registrantId' => $registrantID,
-                            'status'       => $registrant_status,
-                            'send'         => 0,
-                            'updated_at'   => date('Y-m-d H:i:s'),
-                        ]
-                    );
+                return ["status" => "statusUpdated", "message" => "The KYC verification had beed verified by the user."];
 
-                    return ["status" => "statusUpdated", "message" => "The KYC verification had beed verified by the user."];
+            } else {
 
-                } else {
+                $exist_data = Capsule::table("mod_kyc_emailVerification")->where("clientId", $uid)->first();
 
-                    $exist_data = Capsule::table("mod_kyc_emailVerification")->where("clientId", $uid)->where("registrantId", $registrantID)->first();
+                if(!$exist_data || $exist_data->status != "Verified") {
+                    
+                    $kyc_sendData = [
+                        'registrantContactId' => $viewRegistrantStatus['registrant_id']
+                    ];
 
-                    if(!$exist_data || $exist_data->status != "Verified") {
-                        
-                        $kyc_sendData = [
-                            'registrantContactId' => $registrantID
-                        ];
+                    // Send KYC email
+                    $sendEmail = $curl->curlCall("GET", $kyc_sendData, "sendKYCMail");
+                    if(!empty($sendEmail['status_code']) && $sendEmail['status_code'] == 200) {
+                        Capsule::table('mod_kyc_emailVerification')->updateOrInsert(
+                            ['clientId' => $uid],
+                            [
+                                'registrantId' => $viewRegistrantStatus['registrant_id'],
+                                'status'       => $viewRegistrantStatus['status'],
+                                'send'         => 1,
+                                'updated_at'   => date('Y-m-d H:i:s'),
+                            ]
+                        );
 
-                        // Send KYC email
-                        $sendEmail = $curl->curlCall("GET", $kyc_sendData, "sendKYCMail");
-                        if(!empty($sendEmail['status_code']) && $sendEmail['status_code'] == 200) {
-                            Capsule::table('mod_kyc_emailVerification')->updateOrInsert(
-                                ['clientId' => $uid],
-                                [
-                                    'registrantId' => $registrantID,
-                                    'status'       => "NA",
-                                    'send'         => 1,
-                                    'updated_at'   => date('Y-m-d H:i:s'),
-                                ]
-                            );
-
-                            return ["status" => "emailSend", "message" => "The KYC verification email has beed sent to client: #{$uid}."];
-                        }
+                        return ["status" => "emailSend", "message" => "The KYC verification email has beed sent to client: #{$uid}."];
                     }
                 }
-
             }
 
         } catch(Exception $e) {
@@ -208,6 +175,39 @@ class Helper
         }
     }
 
+    // get registrant KYC status
+    public function getRegistrantClientStatus($uid) {
+        try {
+            // 
+            $curl = new Curl();
+
+            $field_id = Capsule::table('tblcustomfields')->where('fieldname', 'like', 'registrantContactId|%')->where('type', 'client')->value('id');
+            $registrantID =  Capsule::table('tblcustomfieldsvalues')->where("fieldid", $field_id)->where("relid", $uid)->value("value");
+
+            if(!$registrantID) {
+                logActivity("No registrantID found for clientId {$uid}");
+                return false;
+            }
+
+            $status_data = [
+                'RegistrantContactId' => $registrantID
+            ];
+            $viewRegistrantStatus = $curl->curlCall("GET", $status_data, "ViewRegistrant");
+
+            if($viewRegistrantStatus['status_code'] == 200) {
+                $registrantData = json_decode($viewRegistrantStatus['response'], true);
+                $registrant_status = $registrantData['responseData']['kycStatus'];
+                return [
+                    "status" => $registrant_status,
+                    "registrant_id" => $registrantID
+                ];
+            }
+
+
+        } catch(Exception $e) {
+            logActivity("Error to get client registrant KYC status. Error: ".$e->getMessage());
+        }
+    }
     
 }
 
