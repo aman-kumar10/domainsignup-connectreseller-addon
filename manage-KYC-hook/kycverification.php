@@ -8,7 +8,12 @@ if(!defined("WHMCS")) {
     die("This file can not be accessed directly!");
 }
 
-
+// Create custom client field for storing Registrant Contact Id
+if(Capsule::table('tblcustomfields')->where('fieldname','like','registrantContactId|%')->count()==0){
+    Capsule::table('tblcustomfields')->insert([
+        'type'=>'client', 'relid'=>0, 'fieldname'=>'registrantContactId|Registrant Contact Id', 'fieldtype'=>'text', 'description'=>'', 'fieldoptions'=>'', 'regexpr'=>'', 'adminonly'=> '', 'required'=>'', 'showorder'=>'', 'showinvoice'=>'', 'sortorder'=>0,
+    ]);
+}
 /* 
  Add Reseller client 
  While new WHMCS client added
