@@ -146,9 +146,14 @@ add_hook('AdminAreaClientSummaryPage', 1, function($vars)
             
             // Resturn the registrant status 
             if ($registrantStatus['status'] === "Verified") {
-                return '<div class="alert alert-success">KYC verification for the registrant client has been completed.</div>';
+                return '<div class="alert alert-success" style="display:flex; justify-content:space-between; align-items:center;">KYC verification for the registrant client has been completed. <span>KYC Verification Status: <strong>'.$registrantStatus['status'].'</strong></span></div>';
             } else {
-                return '<div class="alert alert-warning">KYC verification for the registrant client has not been completed yet.</div>';
+                if(!empty($registrantStatus['status'])) {
+                    $status = '<span>KYC Verification Status: <strong>'.$registrantStatus['status'].'</strong></span>';
+                } else {
+                    $status = "";
+                }
+                return '<div class="alert alert-warning" style="display:flex; justify-content:space-between; align-items:center;">KYC verification for the registrant client has not been completed yet. '.$status.'</div>';
             }
         }
 
